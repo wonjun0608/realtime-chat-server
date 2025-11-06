@@ -47,7 +47,7 @@ class Rooms {
             const room = this.rooms.get(user.room);
             room.users.delete(socketId);
             
-            // if room is empty, then delete the room
+            // if room is empty delete the room
             if (room.users.size === 0)
             {
                 this.rooms.delete(room.name);
@@ -59,9 +59,12 @@ class Rooms {
     }
 
     createRoom({ name, isPrivate = false, password = "", ownerId }) {
+
         if (!name || this.rooms.has(name)) {
-            return { ok: false, error: "Room name is invalid or already exists." };
+            return { ok: false, error: "Room name is invalid or already exists" };
         }
+
+
         this.rooms.set(
             name, 
             {
@@ -111,9 +114,77 @@ class Rooms {
     isOwner(socketId, roomName) {
         const room = this.rooms.get(roomName);
 
-        // check if room exists and if the socketId matches the ownerId
+        // check if room exists and owner match
         return !!room && room.ownerId === socketId;
     }
+
+
+    getUserNicknames(roomName) {
+
+        const room = this.rooms.get(roomName);
+
+
+        if (!room)
+        {
+            return [];
+        }
+
+        // map socket ides to nicknames
+        return Array.from(room.users).map(id => this.users.get(id)?.nickname).filter(Boolean);
+    }
+
+
+    kickUser(roomName, targetNickname) {
+
+        const room = this.rooms.get(roomName);
+
+        
+        if (!room) 
+        {
+            return false;
+        }
+
+        for (const [id, user] of this.users.entries()) {
+            // find the target user by nickname in the room and delete that user
+            if (user.nickname === targetNickname && user.room === roomName) 
+            {
+                room.users.delete(id);
+                user.room = null;
+                return true;
+            }
+        }
+        return false;
+    }
+
+
+    banUser(roomName, targetNickname) {
+
+        const room = this.rooms.get(roomName);
+
+
+        if (!room) 
+        {
+            return false;
+        }
+
+        // add user to the ban list and kick them out
+        room.banned.add(targetNickname);
+        this.kickUser(roomName, targetNickname);
+
+
+        return true;
+    }
+
+
+    isBanned(roomName, nickname) {
+
+        const room = this.rooms.get(roomName);
+
+        // check if user in the ban list
+        return room?.banned.has(nickname);
+    }
+
+
 
 
 }
