@@ -1,84 +1,106 @@
+// server/Rooms.js
 class Rooms {
-
     constructor() {
+        // Map<roomName, { name, isPrivate, password, ownerNickname, users:Set<socketId>, banned:Set<nickname> }>
+        this.rooms = new Map();
+        // Map<socketId, { id, nickname, room: string|null }>
+        this.users = new Map();
 
-        // roomName = { name, isPrivate, password, ownerId, users:Set<socketId>, banned:Set<nickname> }
-        this.rooms = new Map(); 
+        // Create the public lobby room
+        this.rooms.set("lobby", {
+            name: "lobby",
+            isPrivate: false,
+            password: "",
+            ownerNickname: null,
+            users: new Set(),
+            banned: new Set(),
+        });
 
-        // socketId = { id, nickname, room: string }
-        this.users = new Map(); 
     }
 
+    // Get public state of all rooms (for lobby listing)
     getPublicState() {
-        // for show room list to clients without sensitive info so no passward needed
-        return Array.from(this.rooms.values()).map(
-            room => (
+
+        return Array.from(this.rooms.values())
+            .filter(r => r.name !== "lobby") // hide lobby
+            .map(r => (
                 {
-                    name: room.name,
-                    isPrivate: room.isPrivate,
-                    count: room.users.size
+                name: r.name,
+                isPrivate: r.isPrivate,
+                count: r.users.size,
                 }
-            )
-        );
+            ));
     }
 
+
+    // Setting users
     setUser(socketId, nickname) {
-        // adding new user using the nickname
-        this.users.set(socketId, 
-            { id: socketId, nickname, room: null }
-        );
+
+        this.users.set(socketId, { id: socketId, nickname, room: "lobby" });
+        const lobby = this.rooms.get("lobby");
+
+        lobby.users.add(socketId);
     }
 
-    
     getUser(socketId) {
-        // get user info by the sociket id
-        const user = this.users.get(socketId);
-        return user;
+
+        return this.users.get(socketId);
     }
 
     removeUser(socketId) {
-        const user = this.users.get(socketId);
 
-        if (!user)
-        {
-            return;
-        } 
-        if (user.room && this.rooms.has(user.room)) {
-            const room = this.rooms.get(user.room);
-            room.users.delete(socketId);
-            
-            // if room is empty delete the room
-            if (room.users.size === 0)
-            {
-                this.rooms.delete(room.name);
-            } 
-        }
-
-        // remove the user
+        // Leave any room, but keep the room
+        this.leaveRoom(socketId);
         this.users.delete(socketId);
     }
 
-    createRoom({ name, isPrivate = false, password = "", ownerId }) {
 
-        if (!name || this.rooms.has(name)) {
+    createRoom({ name, isPrivate = false, password = "", ownerNickname }) {
+        if (!name || this.rooms.has(name)) 
+        {
             return { ok: false, error: "Room name is invalid or already exists" };
         }
 
 
-        this.rooms.set(
-            name, 
-            {
-                name,
-                isPrivate: !!isPrivate,
-                password: isPrivate ? String(password || "") : "",
-                ownerId,
-                users: new Set(),
-                banned: new Set()
-            }
-        );
-
+        this.rooms.set(name, {
+            name,
+            isPrivate: !!isPrivate,
+            password: isPrivate ? String(password || "") : "",
+            ownerNickname,        // track owner by nickname
+            users: new Set(),
+            banned: new Set(),
+        });
 
         return { ok: true };
+    }
+
+    // Check if the user is the owner of the room
+    isOwner(socketId, roomName) {
+
+        const room = this.rooms.get(roomName);
+        const user = this.users.get(socketId);
+
+        // owner identified by nickname
+        return !!room && !!user && room.ownerNickname === user.nickname;
+    }
+
+
+    // Check if a user is banned from a room
+    isBanned(roomName, nickname) {
+        const room = this.rooms.get(roomName);
+
+        return !!room && room.banned.has(nickname);
+    }
+
+    getUserNicknames(roomName) {
+
+        const room = this.rooms.get(roomName);
+        if (!room)
+        {
+            return [];
+        }
+
+        return Array.from(room.users).map(id => this.users.get(id)?.nickname).filter(Boolean);
     }
 
 
@@ -86,107 +108,79 @@ class Rooms {
         const user = this.users.get(socketId);
         const room = this.rooms.get(roomName);
 
-        // check if user and room exist
+
         if (!user || !room)
-        { 
-            return { ok: false, error: "Cannot join room" };
+        {
+            return { ok: false, error: "Cannot join room." };
         }
+            
 
-
-        // leave previous room if any
-        if (user.room && this.rooms.has(user.room)) {
-            this.rooms.get(user.room).users.delete(socketId);
-
-            // clean up empty room
-            if (this.rooms.get(user.room).users.size === 0) 
-            {
-                this.rooms.delete(user.room);
-            }
+        // leave previous room
+        if (user.room && this.rooms.has(user.room)) 
+        {
+            const prev = this.rooms.get(user.room);
+            prev.users.delete(socketId);
         }
-
 
         room.users.add(socketId);
         user.room = roomName;
         return { ok: true };
     }
 
-
-    isOwner(socketId, roomName) {
-        const room = this.rooms.get(roomName);
-
-        // check if room exists and owner match
-        return !!room && room.ownerId === socketId;
-    }
+    leaveRoom(socketId) {
+        const user = this.users.get(socketId);
 
 
-    getUserNicknames(roomName) {
-
-        const room = this.rooms.get(roomName);
-
-
-        if (!room)
+        if (!user?.room)
         {
-            return [];
+            return { ok: true };
+        } 
+
+        // Remove from current room
+        const current = this.rooms.get(user.room);
+        if (current) 
+        {
+            current.users.delete(socketId);
         }
 
-        // map socket ides to nicknames
-        return Array.from(room.users).map(id => this.users.get(id)?.nickname).filter(Boolean);
+        // Move back to lobby
+        const lobby = this.rooms.get("lobby");
+        lobby.users.add(socketId);
+        user.room = "lobby";
+
+        return { ok: true };
     }
 
 
     kickUser(roomName, targetNickname) {
-
         const room = this.rooms.get(roomName);
-
-        
-        if (!room) 
+        if (!room)
         {
             return false;
         }
 
-        for (const [id, user] of this.users.entries()) {
-            // find the target user by nickname in the room and delete that user
-            if (user.nickname === targetNickname && user.room === roomName) 
+        for (const [id, u] of this.users.entries()) {
+            if (u.nickname === targetNickname && u.room === roomName) 
             {
                 room.users.delete(id);
-                user.room = null;
-                return true;
+                u.room = null;
+                return id; // return socketId that was kicked out
             }
         }
         return false;
     }
 
-
     banUser(roomName, targetNickname) {
-
         const room = this.rooms.get(roomName);
-
-
-        if (!room) 
+        if (!room)
         {
             return false;
-        }
-
-        // add user to the ban list and kick them out
+        } 
         room.banned.add(targetNickname);
-        this.kickUser(roomName, targetNickname);
 
-
-        return true;
+        // Also kick the user if currently in the room
+        return this.kickUser(roomName, targetNickname);
     }
-
-
-    isBanned(roomName, nickname) {
-
-        const room = this.rooms.get(roomName);
-
-        // check if user in the ban list
-        return room?.banned.has(nickname);
-    }
-
-
-
-
 }
 
 module.exports = Rooms;
