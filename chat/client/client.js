@@ -67,17 +67,71 @@ class UIManager {
         });
     }
 
-    // add message to chat box
-    addMessage(msg, isPrivate = false, to = null) {
-        const div = document.createElement("div");
-        div.className = "msg";
-        const prefix = isPrivate ? "[PM] " : "";
-        const target = to ? ` → ${to}` : "";
-        div.textContent = `${prefix}${msg.from}${target}: ${msg.text}`;
-        this.$messages.appendChild(div);
-        this.$messages.scrollTop = this.$messages.scrollHeight;
+
+// add message to chat box
+addMessage(msg, isPrivate = false, to = null) {
+    const div = document.createElement("div");
+    div.className = "msg";
+    div.dataset.id = msg.id;
+
+     if (msg.from === App.instance.nickname) {
+        div.classList.add("self");
+    } else {
+        div.classList.add("other");
     }
 
+
+    const prefix = isPrivate ? "[PM] " : "";
+    const target = to ? ` → ${to}` : "";
+
+    const time = new Date(msg.ts).toLocaleTimeString([], { 
+        hour: "2-digit", 
+        minute: "2-digit",
+        hour12: true 
+    });
+
+
+    const textWrapper = document.createElement("span");
+    textWrapper.className = "msg-text";
+
+    const textSpan = document.createElement("span");
+    textSpan.textContent = `${prefix}${msg.from}${target}: ${msg.text}`;
+
+    // Delte emojin. Only for my own's text
+    let delBtn = null;
+    if (msg.from === App.instance.nickname) {
+        delBtn = document.createElement("button");
+        delBtn.textContent = "🗑️";
+        delBtn.style.marginLeft = "6px";
+        delBtn.style.background = "transparent";
+        delBtn.style.border = "none";
+        delBtn.style.cursor = "pointer";
+        delBtn.onclick = () => {
+            console.log("[CLIENT] delete click, emit chat:delete", msg.id);
+            App.instance.client.socket.emit("chat:delete", { msgId: msg.id });
+        };
+        textWrapper.appendChild(delBtn);
+    }
+
+   
+    textWrapper.prepend(textSpan);
+
+
+    const timeSpan = document.createElement("span");
+    timeSpan.className = "msg-time";
+    timeSpan.textContent = time;
+
+  
+    div.appendChild(textWrapper);
+    div.appendChild(timeSpan);
+
+    this.$messages.appendChild(div);
+    this.$messages.scrollTop = this.$messages.scrollHeight;
+}
+
+
+
+   
 
     clearMessages() {
         this.$messages.innerHTML = "";
@@ -93,38 +147,75 @@ class SocketClient {
         this.registerHandlers();
     }
 
-    // register socket event handler
+  
     registerHandlers() {
-        this.socket.on("lobby:rooms", rooms =>
+   
+    const sound = new Audio("https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg");
+    //// Sound effect used for incoming messages
+    // Source: Google Actions Sound Library (Free-to-use sound effects)
+    // URL: https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg
 
-            this.ui.showRooms(rooms, (name, priv) => {
-                if (priv) 
-                {
-                    const pass = prompt("Password?");
-                    this.joinRoom(name, pass || "");
-                } 
-                else 
-                {
-                    this.joinRoom(name, "");
-                }
-                    
-            })
-        );
+  
+    this.socket.on("lobby:rooms", rooms =>
+        this.ui.showRooms(rooms, (name, priv) => {
+            if (priv) {
+                const pass = prompt("Password?");
+                this.joinRoom(name, pass || "");
+            } else {
+                this.joinRoom(name, "");
+            }
+        })
+    );
 
-        this.socket.on("room:users", list =>
-            this.ui.showUsers(list, this.isOwner,
-                u => this.kickUser(u),
-                u => this.banUser(u)
-            )
-        );
+    
+
+    this.socket.on("room:users", list =>
+        this.ui.showUsers(
+            list,
+            this.isOwner,
+            u => this.kickUser(u),
+            u => this.banUser(u)
+        )
+     );
+
+    this.socket.on("chat:deleted", ({ msgId }) => {
+    console.log("[CLIENT] chat:deleted received:", msgId);
+    const msgEl = document.querySelector(`[data-id="${msgId}"]`);
+    if (msgEl) {
+        const textSpan = msgEl.querySelector(".msg-text");
+        if (textSpan) {
+            textSpan.textContent = "message deleted";
+        }
+        msgEl.style.opacity = "0.6";
+    } else {
+        console.warn("[CLIENT] message element not found for id:", msgId);
+    }
+});
+
+   
+    this.socket.on("chat:public", msg => {
+        this.ui.addMessage(msg);
+   
+        if (msg.from !== App.instance.nickname) {
+            sound.play().catch(() => {});
+        }
+    });
+
+    this.socket.on("chat:private", msg => {
+        this.ui.addMessage(msg, true, msg.to);
+
+        if (msg.from !== App.instance.nickname) {
+            sound.play().catch(() => {});
+            this.socket.emit("chat:read", { msgId: msg.id });
+        }
+    });
 
 
-        this.socket.on("chat:public", msg => this.ui.addMessage(msg));
-
-
-        this.socket.on("chat:private", msg =>
-            this.ui.addMessage(msg, true, msg.to)
-        );
+         
+        this.socket.on("chat:history", messages => {
+            this.ui.clearMessages(); 
+            messages.forEach(msg => this.ui.addMessage(msg)); 
+        });
 
         // kick notification
         this.socket.on("room:kicked", ({ room }) => {
@@ -137,7 +228,28 @@ class SocketClient {
             alert(`You were banned from ${room}`);
             this.leaveRoom();
         });
+
+        // typing mark notification 
+        this.socket.on("typing", ({ nickname, isTyping }) => {
+            const indicator = document.getElementById("typingIndicator");
+
+            if (!this.typingUsers) this.typingUsers = new Set();
+
+            if (isTyping) {
+                this.typingUsers.add(nickname);
+            } else {
+                this.typingUsers.delete(nickname);
+            }
+
+            if (this.typingUsers.size > 0) {
+                const names = Array.from(this.typingUsers).join(", ");
+                indicator.textContent = `${names} is typing...`;
+            } else {
+                indicator.textContent = "";
+            }
+        });
     }
+
 
     login(nickname) {
         this.socket.emit("login", nickname, res => {
@@ -178,7 +290,7 @@ class SocketClient {
 
             // enable leave button except in lobby
             document.getElementById("leaveBtn").disabled = false;
-            this.ui.clearMessages();
+            this.ui.clearMessages(); //issue
         });
     }
 
@@ -194,16 +306,14 @@ class SocketClient {
     }
 
     sendMessage(text) {
-        // check for private message command
-        if (text.startsWith("/pm ")) 
-        {
+        if (text.startsWith("/pm ")) {
             const [, user, ...rest] = text.split(" ");
             this.socket.emit("chat:send", { text: rest.join(" "), to: user });
-        } 
-        else 
-        {
+        } else {
             this.socket.emit("chat:send", { text });
         }
+
+        this.sendTyping(false);
     }
 
     kickUser(user) {
@@ -213,9 +323,11 @@ class SocketClient {
     banUser(user) {
         this.socket.emit("room:ban", { targetNickname: user });
     }
-
-    
+    sendTyping(isTyping) {
+        this.socket.emit("typing", { isTyping });
     }
+
+}
 
 class App {
     constructor() {
@@ -259,6 +371,15 @@ class App {
             if (text) this.client.sendMessage(text);
             input.value = "";
         };
+     // Creartive protion : recognize typing from someone
+        const msgInput = document.getElementById("msgInput");
+        let typingTimeout;
+
+        msgInput.addEventListener("input", () => {
+            this.client.sendTyping(true);
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => this.client.sendTyping(false), 4000); 
+        });
     }
 }
 

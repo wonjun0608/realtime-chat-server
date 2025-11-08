@@ -30,7 +30,7 @@
         <h3>Create Room</h3>
         <form id="createForm">
           <input id="roomName" placeholder="Room name" required />
-          <label><input type="checkbox" id="privateRoom" /> Private</label>
+          <label><input type="checkbox" id="privateRoom" />&nbspPrivate</label>
           <input id="roomPass" placeholder="Password (if private)" type="password" />
           <button type="submit">Create</button>
           <p id="createError" class="error"></p>
@@ -49,12 +49,16 @@
         <button id="leaveBtn" disabled>Leave</button>
       </div>
 
-      <div id="messages" class="messages"></div>
+      <div id="messages" class="messages">
+      </div>
+
+       <p id="typingIndicator" class="typing"></p>
 
       <form id="msgForm" class="msgForm">
         <input id="msgInput" placeholder="Type message (/pm user msg for private)" />
         <button type="submit">Send</button>
       </form>
+
     </section>
 
     <aside class="sidebar">

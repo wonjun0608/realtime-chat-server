@@ -46,31 +46,20 @@ class ChatServer {
         // create room
         socket.on("room:create", ({ name, isPrivate, password }, ack) => {
             const me = this.rooms.getUser(socket.id);
+            if (!me) return ack?.({ ok: false, error: "Login first." });
 
-            if (!me)
-            {
-                return ack?.({ ok: false, error: "Login first." });
-            } 
-
-            const result = this.rooms.createRoom(
-            {
+            const result = this.rooms.createRoom({
                 name,
                 isPrivate,
                 password,
                 ownerNickname: me.nickname,
             });
+            if (!result.ok) return ack?.(result);
 
-            if (!result.ok)
-            {
-                return ack?.(result);
-            } 
-
-            // owner auto join the room
             this.rooms.joinRoom(socket.id, name);
             socket.join(name);
 
-            // updates
-            this.io.emit("lobby:rooms", this.rooms.getPublicState());
+            this.io.to("lobby").emit("lobby:rooms", this.rooms.getPublicState());
             this.io.to(name).emit("room:users", this.rooms.getUserNicknames(name));
 
             ack?.({ ok: true, room: name, owner: me.nickname });
@@ -81,102 +70,60 @@ class ChatServer {
             const me = this.rooms.getUser(socket.id);
             const room = this.rooms.rooms.get(name);
 
+            if (!me) return ack?.({ ok: false, error: "Login first" });
+            if (!room) return ack?.({ ok: false, error: "Room not found" });
+            if (this.rooms.isBanned(name, me.nickname)) return ack?.({ ok: false, error: "You are banned" });
+            if (room.isPrivate && room.password !== password) return ack?.({ ok: false, error: "Incorrect password" });
 
-            if (!me)
-            {
-                return ack?.({ ok: false, error: "Login first" });
-            } 
-
-            if (!room)
-            {
-                return ack?.({ ok: false, error: "Room not found" });
-            }
-
-            // check user is banned
-            if (this.rooms.isBanned(name, me.nickname))
-            {
-                return ack?.({ ok: false, error: "You are banned" });
-            }
-             
-            // check password
-            if (room.isPrivate && room.password !== password)
-            {
-                return ack?.({ ok: false, error: "Incorrect password" });
-            }
-                
-
-            const res = this.rooms.joinRoom(socket.id, name);
-            
-            if (!res.ok)
-            {
-                return ack?.(res);
-            } 
-
-            // switch rooms at socket.io level too
-            // leave all rooms except its private id
-            for (const r of socket.rooms) 
-            {
-                if (r !== socket.id)
-                {
-                    socket.leave(r);
-                } 
-            }
-
-            
+            if (socket.rooms.has("lobby")) socket.leave("lobby");
             socket.join(name);
 
-            // updates the users on the list
+    
+            const res = this.rooms.joinRoom(socket.id, name);
+            if (!res.ok) return ack?.(res);
+
+
             this.io.to(name).emit("room:users", this.rooms.getUserNicknames(name));
-            this.io.emit("lobby:rooms", this.rooms.getPublicState());
+            this.io.to("lobby").emit("lobby:rooms", this.rooms.getPublicState());
+
+            const history = this.rooms.getRoomMessages(name);
+            socket.emit("chat:history", history);
+
             ack?.({ ok: true, room: name, owner: room.ownerNickname });
         });
 
+
+        // leave room
         socket.on("room:leave", () => {
             const me = this.rooms.getUser(socket.id);
             const current = me?.room;
+            if (!current) return;
 
-
-            if (!current) 
-            {
-                return;
-            }
-
-            this.rooms.leaveRoom(socket.id);
+   
             socket.leave(current);
 
-            // rejoin lobby 
-            socket.join("lobby"); 
+   
+            this.rooms.leaveRoom(socket.id);
 
+    
+            socket.join("lobby");
+            this.rooms.joinRoom(socket.id, "lobby");
 
-            // Update user lists
             this.io.to(current).emit("room:users", this.rooms.getUserNicknames(current));
             this.io.to("lobby").emit("room:users", this.rooms.getUserNicknames("lobby"));
-            this.io.emit("lobby:rooms", this.rooms.getPublicState());
+            socket.emit("lobby:rooms", this.rooms.getPublicState());
         });
 
         // kick out
         socket.on("room:kick", ({ targetNickname }, ack) => {
             const me = this.rooms.getUser(socket.id);
-
-            if (!me?.room)
-            {
-                return ack?.({ ok: false, error: "Join a room first" });
-            } 
-
-
+            if (!me?.room) return ack?.({ ok: false, error: "Join a room first" });
             if (!this.rooms.isOwner(socket.id, me.room))
-            {
                 return ack?.({ ok: false, error: "Only the room owner can kick" });
-            }
-
 
             const kickedId = this.rooms.kickUser(me.room, targetNickname);
-            if (!kickedId)
-            {
-                return ack?.({ ok: false, error: "User not found" });
-            } 
+            if (!kickedId) return ack?.({ ok: false, error: "User not found" });
 
-            // notify and force leave the kicked user
             const targetSock = this.io.sockets.sockets.get(kickedId);
             targetSock?.emit("room:kicked", { room: me.room });
             targetSock?.leave(me.room);
@@ -188,68 +135,76 @@ class ChatServer {
         // BAN
         socket.on("room:ban", ({ targetNickname }, ack) => {
             const me = this.rooms.getUser(socket.id);
-
-            if (!me?.room) 
-            {
-                return ack?.({ ok: false, error: "Join a room first" });
-            }
-
-
+            if (!me?.room) return ack?.({ ok: false, error: "Join a room first" });
             if (!this.rooms.isOwner(socket.id, me.room))
-            {
                 return ack?.({ ok: false, error: "Only the room owner can ban." });
-            }
-                
 
             const kickedId = this.rooms.banUser(me.room, targetNickname);
-            if (!kickedId)
-            {
-                return ack?.({ ok: false, error: "User not found." });
-            } 
+            if (!kickedId) return ack?.({ ok: false, error: "User not found." });
 
-            // notify and force leave the banned user
             const targetSock = this.io.sockets.sockets.get(kickedId);
             targetSock?.emit("room:banned", { room: me.room });
             targetSock?.leave(me.room);
 
-
-            // update user list
             this.io.to(me.room).emit("room:users", this.rooms.getUserNicknames(me.room));
             ack?.({ ok: true });
         });
 
-        // caht message
+        // chat message
         socket.on("chat:send", ({ text, to }, ack) => {
-            const me = this.rooms.getUser(socket.id);
-            if (!me?.room)
-            {
-                return ack?.({ ok: false, error: "Join a room first" });
-            } 
+        const me = this.rooms.getUser(socket.id);
+        if (!me?.room) return ack?.({ ok: false, error: "Join a room first" });
 
-            const msg = { from: me.nickname, text, ts: Date.now() };
-            if (to) 
-            {
-                // private message to specific user in the same room
-                const target = [...this.rooms.users.values()].find(
-                    u => u.nickname === to && u.room === me.room
-                );
+    
+        const msgId = `${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+        const msg = { id: msgId, from: me.nickname, text, ts: Date.now() };
 
-                if (!target)
-                {
-                    return ack?.({ ok: false, error: "User not in room" });
-                } 
+        if (to) {
+            const target = [...this.rooms.users.values()].find(
+                (u) => u.nickname === to && u.room === me.room
+            );
+            if (!target) return ack?.({ ok: false, error: "User not in room" });
 
-                // send to both sender and receiver
-                this.io.to(target.id).emit("chat:private", msg);
-                socket.emit("chat:private", { ...msg, to });
+            this.io.to(target.id).emit("chat:private", msg);
+            socket.emit("chat:private", { ...msg, to });
+        } else {
+            this.rooms.addMessageToRoom(me.room, msg);
+            this.io.to(me.room).emit("chat:public", msg);
+        }
 
-            } 
-            else 
-            {
-                this.io.to(me.room).emit("chat:public", msg);
-            }
-            ack?.({ ok: true });
-        });
+        ack?.({ ok: true });
+    });
+
+    socket.on("chat:delete", ({ msgId }) => {
+        const me = this.rooms.getUser(socket.id);
+        if (!me?.room) return;
+
+        const roomName = me.room;
+        console.log(`[DELETE] ${me.nickname} deleted message ${msgId} in ${roomName}`);
+
+    
+        this.io.to(roomName).emit("chat:deleted", { msgId });
+    });
+
+
+        // typing indicator
+    socket.on("typing", ({ isTyping }) => {
+        const me = this.rooms.getUser(socket.id);
+    
+        if (!me) {
+            console.warn(`[WARN] typing: socket ${socket.id} not registered`);
+            return;
+        }
+        if (!me.room) {
+        console.warn(`[WARN] typing: user ${me.nickname} not in a room`);
+        return;
+    }
+
+
+    socket.to(me.room).emit("typing", { nickname: me.nickname, isTyping });
+    });
+
+        
 
         // disconnect 
         socket.on("disconnect", () => {
@@ -257,16 +212,11 @@ class ChatServer {
             const roomName = me?.room;
             this.rooms.removeUser(socket.id);
 
-
-            if (roomName) 
-            {
-                // update user list in the room
+            if (roomName) {
                 this.io.to(roomName).emit("room:users", this.rooms.getUserNicknames(roomName));
             }
 
-            // update lobby room list
-            this.io.emit("lobby:rooms", this.rooms.getPublicState());
-
+            this.io.to("lobby").emit("lobby:rooms", this.rooms.getPublicState());
             this.io.to("lobby").emit("room:users", this.rooms.getUserNicknames("lobby"));
         });
     }

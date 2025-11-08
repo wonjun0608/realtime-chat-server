@@ -14,6 +14,8 @@ class Rooms {
             ownerNickname: null,
             users: new Set(),
             banned: new Set(),
+            kicked: new Set(),
+            messages: []
         });
 
     }
@@ -69,10 +71,14 @@ class Rooms {
             ownerNickname,        // track owner by nickname
             users: new Set(),
             banned: new Set(),
+            kicked: new Set(),
+            messages: []
         });
 
         return { ok: true };
     }
+
+    
 
     // Check if the user is the owner of the room
     isOwner(socketId, roomName) {
@@ -128,27 +134,35 @@ class Rooms {
     }
 
     leaveRoom(socketId) {
-        const user = this.users.get(socketId);
+    const user = this.users.get(socketId);
+    if (!user?.room) return { ok: true };
 
+    const current = this.rooms.get(user.room);
+    if (current) {
+        current.users.delete(socketId);
+    }
 
-        if (!user?.room)
-        {
-            return { ok: true };
-        } 
+    // const lobby = this.rooms.get("lobby");
+    // lobby.users.add(socketId);
+    // user.room = "lobby";
 
-        // Remove from current room
-        const current = this.rooms.get(user.room);
-        if (current) 
-        {
-            current.users.delete(socketId);
-        }
+   
+    user.room = null;
+    return { ok: true };
+}
+    // To save previous meesages when come back to the room
+    getRoomMessages(roomName) {
+        const room = this.rooms.get(roomName);
+        if (!room) return [];
+        return room.messages;
+    }
 
-        // Move back to lobby
-        const lobby = this.rooms.get("lobby");
-        lobby.users.add(socketId);
-        user.room = "lobby";
+    addMessageToRoom(roomName, msg) {
+        const room = this.rooms.get(roomName);
+        if (!room) return;
+        room.messages.push(msg);
 
-        return { ok: true };
+        if (room.messages.length > 100) room.messages.shift();
     }
 
 
