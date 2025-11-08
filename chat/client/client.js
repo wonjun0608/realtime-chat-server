@@ -106,15 +106,20 @@ addMessage(msg, isPrivate = false, to = null) {
     quote.style.borderRadius = "4px";
     quote.style.background = "rgba(255,255,255,0.05)";
     quote.style.cursor = "pointer";
+    quote.title = "Click to scroll to original message";
 
     
     quote.onclick = () => {
         const original = document.querySelector(`[data-id="${msg.replyTo}"]`);
         if (original) {
-            original.scrollIntoView({ behavior: "smooth", block: "center" });
-            original.style.transition = "background 0.3s";
-            original.style.background = "rgba(255,255,255,0.1)";
-            setTimeout(() => (original.style.background = ""), 800);
+            original.scrollIntoView({ behavior: "smooth", block: "center" }); 
+            original.style.transition = "background 0.3s ease";
+            original.style.background = "rgba(93,163,250,0.2)";
+            setTimeout(() => {
+                original.style.background = "";
+            }, 1200);
+        } else {
+            console.warn("Original message not found:", msg.replyTo);
         }
     };
 
