@@ -163,3 +163,26 @@ input{
   border-top-left-radius: 0;
   justify-content: flex-start;
 }
+#replyPreview {
+  display: block;
+  position: relative;
+  top: -5px;               
+  background: rgba(93, 163, 250, 0.15);
+  border-left: 3px solid #5da3fa;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 0.8rem;         
+  color: #d1d5db;
+  margin-bottom: 6px;
+  width: 100%;              
+  box-sizing: border-box;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background 0.2s;
+}
+
+#replyPreview:hover {
+  background: rgba(93, 163, 250, 0.25);
+  cursor: pointer;
+}

@@ -94,6 +94,34 @@ addMessage(msg, isPrivate = false, to = null) {
     const textWrapper = document.createElement("span");
     textWrapper.className = "msg-text";
 
+    if (msg.replyToText) {
+    const quote = document.createElement("div");
+    quote.className = "reply-quote";
+    quote.textContent = `↩︎ ${msg.replyToFrom}: ${msg.replyToText.slice(0, 40)}${msg.replyToText.length > 40 ? "..." : ""}`;
+    quote.style.fontSize = "0.8rem";
+    quote.style.opacity = "0.65";
+    quote.style.marginBottom = "4px";
+    quote.style.padding = "3px 6px";
+    quote.style.borderLeft = "3px solid #5da3fa";
+    quote.style.borderRadius = "4px";
+    quote.style.background = "rgba(255,255,255,0.05)";
+    quote.style.cursor = "pointer";
+
+    
+    quote.onclick = () => {
+        const original = document.querySelector(`[data-id="${msg.replyTo}"]`);
+        if (original) {
+            original.scrollIntoView({ behavior: "smooth", block: "center" });
+            original.style.transition = "background 0.3s";
+            original.style.background = "rgba(255,255,255,0.1)";
+            setTimeout(() => (original.style.background = ""), 800);
+        }
+    };
+
+    textWrapper.appendChild(quote);
+}
+
+
     const textSpan = document.createElement("span");
     textSpan.textContent = `${prefix}${msg.from}${target}: ${msg.text}`;
 
@@ -112,6 +140,23 @@ addMessage(msg, isPrivate = false, to = null) {
         };
         textWrapper.appendChild(delBtn);
     }
+
+    // reply button for everyone
+        const replyBtn = document.createElement("button");
+        replyBtn.textContent = "↩️";
+        replyBtn.style.marginLeft = "4px";
+        replyBtn.style.background = "transparent";
+        replyBtn.style.border = "none";
+        replyBtn.style.cursor = "pointer";
+        replyBtn.onclick = () => {
+            App.instance.replyTarget = {
+                id: msg.id,
+                text: msg.text,
+                from: msg.from
+            };
+            App.instance.showReplyPreview(msg); 
+        };
+        textWrapper.appendChild(replyBtn);
 
    
     textWrapper.prepend(textSpan);
@@ -304,13 +349,30 @@ class SocketClient {
         document.getElementById("leaveBtn").disabled = true; 
         this.ui.clearMessages();
     }
-
+    
     sendMessage(text) {
+        const payload = { text };
+
+       
         if (text.startsWith("/pm ")) {
             const [, user, ...rest] = text.split(" ");
             this.socket.emit("chat:send", { text: rest.join(" "), to: user });
-        } else {
-            this.socket.emit("chat:send", { text });
+            this.sendTyping(false);
+            return;
+        }
+
+  
+        if (App.instance.replyTarget) {
+            payload.replyTo = App.instance.replyTarget.id;
+        }
+
+        this.socket.emit("chat:send", payload);
+
+      
+        if (App.instance.replyTarget) {
+            App.instance.replyTarget = null;
+            const rp = document.getElementById("replyPreview");
+            if (rp) rp.remove();
         }
 
         this.sendTyping(false);
@@ -343,6 +405,30 @@ class App {
         }
     }
 
+    showReplyPreview(msg) {
+        let preview = document.getElementById("replyPreview");
+        if (!preview) {
+            preview = document.createElement("div");
+            preview.id = "replyPreview";
+            preview.style.background = "rgba(93,163,250,0.15)";
+            preview.style.borderLeft = "3px solid #5da3fa";
+            preview.style.padding = "4px 8px";
+            preview.style.marginBottom = "6px";
+            preview.style.fontSize = "0.85rem";
+            preview.style.cursor = "pointer";
+            document.querySelector(".msgForm").prepend(preview);
+
+            const msgForm = document.getElementById("msgForm");
+            msgForm.parentNode.insertBefore(preview, msgForm);
+    
+        }
+        preview.textContent = `↩️ replying to ${msg.from}: ${msg.text}`;
+        preview.title = "click to cancel";
+        preview.onclick = () => {
+            this.replyTarget = null;
+            preview.remove();
+        };
+    }
 
     bindEvents() {
         // login

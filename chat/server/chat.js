@@ -151,13 +151,23 @@ class ChatServer {
         });
 
         // chat message
-        socket.on("chat:send", ({ text, to }, ack) => {
+        socket.on("chat:send", ({ text, to, replyTo }, ack) => {
         const me = this.rooms.getUser(socket.id);
         if (!me?.room) return ack?.({ ok: false, error: "Join a room first" });
 
     
         const msgId = `${Date.now()}-${Math.floor(Math.random() * 10000)}`;
         const msg = { id: msgId, from: me.nickname, text, ts: Date.now() };
+
+        if (replyTo) {
+            const original = this.rooms
+            .getRoomMessages(me.room)
+            .find(m => m.id === replyTo);
+            if (original) {
+                msg.replyToText = original.text;
+                msg.replyToFrom = original.from;
+            }
+        }
 
         if (to) {
             const target = [...this.rooms.users.values()].find(
