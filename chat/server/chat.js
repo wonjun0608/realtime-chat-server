@@ -164,6 +164,7 @@ class ChatServer {
             .getRoomMessages(me.room)
             .find(m => m.id === replyTo);
             if (original) {
+                msg.replyTo = replyTo;  
                 msg.replyToText = original.text;
                 msg.replyToFrom = original.from;
             }
@@ -197,7 +198,7 @@ class ChatServer {
     });
 
 
-        // typing indicator
+        // typing indicator when other user is typing, you can see who is typing at that moment
     socket.on("typing", ({ isTyping }) => {
         const me = this.rooms.getUser(socket.id);
     

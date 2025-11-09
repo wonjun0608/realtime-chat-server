@@ -92,12 +92,32 @@ input{
 .msg-text {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-size: 15px;
   font-weight: 400;
   color: #ffffff;
   word-break: break-word;
   position: relative;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+.msg-text strong {
+  color: #0e9eff;          
+  font-weight: 700;
+  font-family: "Segoe UI Semibold", system-ui, sans-serif;
+  letter-spacing: 0.4px;  
+  margin-right: 6px;     
+}
+
+.msg-text strong::after {
+  content: ":"; 
+  margin-left: 3px;      
+  color: #a7c7ff;       
+}
+
+
+.msg.self .msg-text strong {
+  color: #004f80;         
 }
 
 .msg-text button {
@@ -106,7 +126,7 @@ input{
   background: transparent;
   border: none;
   cursor: pointer;
-  visibility: hidden;   /* hidden initially */
+  visibility: hidden;   
   opacity: 0;
   transition: opacity 0.2s, color 0.2s;
   margin-left: 4px;
@@ -185,4 +205,8 @@ input{
 #replyPreview:hover {
   background: rgba(93, 163, 250, 0.25);
   cursor: pointer;
+}
+.msg.self .msg-text strong::after {
+  color: rgba(255, 255, 255, 0.95);
+  font-weight: 600;
 }

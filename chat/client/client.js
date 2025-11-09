@@ -80,6 +80,9 @@ addMessage(msg, isPrivate = false, to = null) {
         div.classList.add("other");
     }
 
+    const textWrapper = document.createElement("div");
+    textWrapper.className = "msg-text";
+
 
     const prefix = isPrivate ? "[PM] " : "";
     const target = to ? ` → ${to}` : "";
@@ -91,10 +94,7 @@ addMessage(msg, isPrivate = false, to = null) {
     });
 
 
-    const textWrapper = document.createElement("span");
-    textWrapper.className = "msg-text";
-
-    if (msg.replyToText) {
+if (msg.replyToText) {
     const quote = document.createElement("div");
     quote.className = "reply-quote";
     quote.textContent = `↩︎ ${msg.replyToFrom}: ${msg.replyToText.slice(0, 40)}${msg.replyToText.length > 40 ? "..." : ""}`;
@@ -108,27 +108,31 @@ addMessage(msg, isPrivate = false, to = null) {
     quote.style.cursor = "pointer";
     quote.title = "Click to scroll to original message";
 
-    
+
     quote.onclick = () => {
+    setTimeout(() => {
         const original = document.querySelector(`[data-id="${msg.replyTo}"]`);
         if (original) {
-            original.scrollIntoView({ behavior: "smooth", block: "center" }); 
+            original.scrollIntoView({ behavior: "smooth", block: "center" });
             original.style.transition = "background 0.3s ease";
             original.style.background = "rgba(93,163,250,0.2)";
             setTimeout(() => {
                 original.style.background = "";
-            }, 1200);
+            }, 1600);
         } else {
-            console.warn("Original message not found:", msg.replyTo);
+            console.warn("⚠️ Original message not found:", msg.replyTo);
         }
-    };
+    }, 100); 
+};
+
 
     textWrapper.appendChild(quote);
 }
 
 
     const textSpan = document.createElement("span");
-    textSpan.textContent = `${prefix}${msg.from}${target}: ${msg.text}`;
+    textSpan.innerHTML = `${prefix}<strong>${msg.from}${target}</strong> ${msg.text}`;
+
 
     // Delte emojin. Only for my own's text
     let delBtn = null;
@@ -326,6 +330,7 @@ class SocketClient {
         });
     }
 
+
     joinRoom(name, password) {
         this.socket.emit("room:join", { name, password }, res => {
             if (!res.ok)
@@ -356,9 +361,10 @@ class SocketClient {
     }
     
     sendMessage(text) {
+        // Create message payload to send to the server
         const payload = { text };
 
-       
+        // Handle private message format: "/pm username message"
         if (text.startsWith("/pm ")) {
             const [, user, ...rest] = text.split(" ");
             this.socket.emit("chat:send", { text: rest.join(" "), to: user });
@@ -421,12 +427,16 @@ class App {
             preview.style.marginBottom = "6px";
             preview.style.fontSize = "0.85rem";
             preview.style.cursor = "pointer";
+
+             // Insert preview box above the message form
             document.querySelector(".msgForm").prepend(preview);
 
             const msgForm = document.getElementById("msgForm");
             msgForm.parentNode.insertBefore(preview, msgForm);
     
         }
+
+        // Display which message you’re replying to
         preview.textContent = `↩️ replying to ${msg.from}: ${msg.text}`;
         preview.title = "click to cancel";
         preview.onclick = () => {
@@ -469,7 +479,7 @@ class App {
         msgInput.addEventListener("input", () => {
             this.client.sendTyping(true);
             clearTimeout(typingTimeout);
-            typingTimeout = setTimeout(() => this.client.sendTyping(false), 4000); 
+            typingTimeout = setTimeout(() => this.client.sendTyping(false), 3000); 
         });
     }
 }
