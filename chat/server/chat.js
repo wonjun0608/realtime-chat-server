@@ -67,30 +67,33 @@ class ChatServer {
 
         // join the room
         socket.on("room:join", ({ name, password }, ack) => {
-            const me = this.rooms.getUser(socket.id);
-            const room = this.rooms.rooms.get(name);
+    const me = this.rooms.getUser(socket.id);
+    const room = this.rooms.rooms.get(name);
 
-            if (!me) return ack?.({ ok: false, error: "Login first" });
-            if (!room) return ack?.({ ok: false, error: "Room not found" });
-            if (this.rooms.isBanned(name, me.nickname)) return ack?.({ ok: false, error: "You are banned" });
-            if (room.isPrivate && room.password !== password) return ack?.({ ok: false, error: "Incorrect password" });
-
-            if (socket.rooms.has("lobby")) socket.leave("lobby");
-            socket.join(name);
+    if (!me) return ack?.({ ok: false, error: "Login first" });
+    if (!room) return ack?.({ ok: false, error: "Room not found" });
+    if (this.rooms.isBanned(name, me.nickname)) return ack?.({ ok: false, error: "You are banned" });
+    if (room.isPrivate && room.password !== password) return ack?.({ ok: false, error: "Incorrect password" });
 
     
-            const res = this.rooms.joinRoom(socket.id, name);
-            if (!res.ok) return ack?.(res);
+    if (me.room && socket.rooms.has(me.room)) {
+        socket.leave(me.room);
+        this.rooms.leaveRoom(socket.id); 
+    }
 
+  
+    socket.join(name);
+    const res = this.rooms.joinRoom(socket.id, name);
+    if (!res.ok) return ack?.(res);
 
-            this.io.to(name).emit("room:users", this.rooms.getUserNicknames(name));
-            this.io.to("lobby").emit("lobby:rooms", this.rooms.getPublicState());
+    this.io.to(name).emit("room:users", this.rooms.getUserNicknames(name));
+    this.io.to("lobby").emit("lobby:rooms", this.rooms.getPublicState());
 
-            const history = this.rooms.getRoomMessages(name);
-            socket.emit("chat:history", history);
+    const history = this.rooms.getRoomMessages(name);
+    socket.emit("chat:history", history);
 
-            ack?.({ ok: true, room: name, owner: room.ownerNickname });
-        });
+    ack?.({ ok: true, room: name, owner: room.ownerNickname });
+});
 
 
         // leave room

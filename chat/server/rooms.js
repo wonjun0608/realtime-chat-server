@@ -142,9 +142,9 @@ class Rooms {
         current.users.delete(socketId);
     }
 
-    // const lobby = this.rooms.get("lobby");
-    // lobby.users.add(socketId);
-    // user.room = "lobby";
+    const lobby = this.rooms.get("lobby");
+    lobby.users.add(socketId);
+    user.room = "lobby";
 
    
     user.room = null;
