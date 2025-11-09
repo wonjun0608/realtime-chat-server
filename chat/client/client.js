@@ -271,6 +271,7 @@ class SocketClient {
             messages.forEach(msg => this.ui.addMessage(msg)); 
         });
 
+
         // kick notification
         this.socket.on("room:kicked", ({ room }) => {
             alert(`You were kicked from ${room}`);
@@ -345,7 +346,7 @@ class SocketClient {
 
             // enable leave button except in lobby
             document.getElementById("leaveBtn").disabled = false;
-            this.ui.clearMessages(); //issue
+            this.ui.clearMessages(); 
         });
     }
 

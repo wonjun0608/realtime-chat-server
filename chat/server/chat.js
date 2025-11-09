@@ -59,7 +59,7 @@ class ChatServer {
             this.rooms.joinRoom(socket.id, name);
             socket.join(name);
 
-            this.io.to("lobby").emit("lobby:rooms", this.rooms.getPublicState());
+            this.io.emit("lobby:rooms", this.rooms.getPublicState());
             this.io.to(name).emit("room:users", this.rooms.getUserNicknames(name));
 
             ack?.({ ok: true, room: name, owner: me.nickname });
@@ -87,7 +87,7 @@ class ChatServer {
     if (!res.ok) return ack?.(res);
 
     this.io.to(name).emit("room:users", this.rooms.getUserNicknames(name));
-    this.io.to("lobby").emit("lobby:rooms", this.rooms.getPublicState());
+    this.io.emit("lobby:rooms", this.rooms.getPublicState());
 
     const history = this.rooms.getRoomMessages(name);
     socket.emit("chat:history", history);
@@ -230,7 +230,7 @@ class ChatServer {
                 this.io.to(roomName).emit("room:users", this.rooms.getUserNicknames(roomName));
             }
 
-            this.io.to("lobby").emit("lobby:rooms", this.rooms.getPublicState());
+            this.io.emit("lobby:rooms", this.rooms.getPublicState());
             this.io.to("lobby").emit("room:users", this.rooms.getUserNicknames("lobby"));
         });
     }
