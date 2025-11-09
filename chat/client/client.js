@@ -479,7 +479,7 @@ class App {
         msgInput.addEventListener("input", () => {
             this.client.sendTyping(true);
             clearTimeout(typingTimeout);
-            typingTimeout = setTimeout(() => this.client.sendTyping(false), 3000); 
+            typingTimeout = setTimeout(() => this.client.sendTyping(false), 2200); 
         });
     }
 }
