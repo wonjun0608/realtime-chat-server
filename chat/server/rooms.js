@@ -134,22 +134,23 @@ class Rooms {
     }
 
     leaveRoom(socketId) {
-    const user = this.users.get(socketId);
-    if (!user?.room) return { ok: true };
+        const user = this.users.get(socketId);
+        if (!user?.room) return { ok: true };
 
-    const current = this.rooms.get(user.room);
-    if (current) {
-        current.users.delete(socketId);
+        const current = this.rooms.get(user.room);
+
+        if (current) {
+            current.users.delete(socketId);
+        }
+
+        const lobby = this.rooms.get("lobby");
+        lobby.users.add(socketId);
+        user.room = "lobby";
+
+    
+        return { ok: true };
     }
 
-    const lobby = this.rooms.get("lobby");
-    lobby.users.add(socketId);
-    user.room = "lobby";
-
-   
-    user.room = null;
-    return { ok: true };
-}
     // To save previous meesages when come back to the room
     getRoomMessages(roomName) {
         const room = this.rooms.get(roomName);

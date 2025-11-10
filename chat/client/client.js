@@ -22,6 +22,15 @@ class UIManager {
 
     // display room list in the lobby
     showRooms(rooms, onJoin) {
+
+        let currentRoom = null;
+        try {
+
+            currentRoom = App.instance?.client?.currentRoom || "lobby";
+        } catch (e) {
+            currentRoom = "lobby";
+        }
+
         this.$roomList.innerHTML = "";
         if (!rooms.length) 
         {
@@ -34,7 +43,12 @@ class UIManager {
             const li = document.createElement("li");
             const btn = document.createElement("button");
             btn.textContent = `${r.name} (${r.count})${r.isPrivate ? " Password" : ""}`;
+
+            // disable button if already in the room
+
             btn.onclick = () => onJoin(r.name, r.isPrivate);
+
+
             li.appendChild(btn);
             this.$roomList.appendChild(li);
         });
@@ -68,127 +82,127 @@ class UIManager {
     }
 
 
-// add message to chat box
-addMessage(msg, isPrivate = false, to = null) {
-    const div = document.createElement("div");
-    div.className = "msg";
-    div.dataset.id = msg.id;
+    // add message to chat box
+    addMessage(msg, isPrivate = false, to = null) {
+        const div = document.createElement("div");
+        div.className = "msg";
+        div.dataset.id = msg.id;
 
-     if (msg.from === App.instance.nickname) {
-        div.classList.add("self");
-    } else {
-        div.classList.add("other");
-    }
-
-    const textWrapper = document.createElement("div");
-    textWrapper.className = "msg-text";
-
-
-    const prefix = isPrivate ? "[PM] " : "";
-    const target = to ? ` → ${to}` : "";
-
-    const time = new Date(msg.ts).toLocaleTimeString([], { 
-        hour: "2-digit", 
-        minute: "2-digit",
-        hour12: true 
-    });
-
-
-if (msg.replyToText) {
-    const quote = document.createElement("div");
-    quote.className = "reply-quote";
-    quote.textContent = `↩︎ ${msg.replyToFrom}: ${msg.replyToText.slice(0, 40)}${msg.replyToText.length > 40 ? "..." : ""}`;
-    quote.style.fontSize = "0.8rem";
-    quote.style.opacity = "0.65";
-    quote.style.marginBottom = "4px";
-    quote.style.padding = "3px 6px";
-    quote.style.borderLeft = "3px solid #5da3fa";
-    quote.style.borderRadius = "4px";
-    quote.style.background = "rgba(255,255,255,0.05)";
-    quote.style.cursor = "pointer";
-    quote.title = "Click to scroll to original message";
-
-
-    quote.onclick = () => {
-    setTimeout(() => {
-        const original = document.querySelector(`[data-id="${msg.replyTo}"]`);
-        if (original) {
-            original.scrollIntoView({ behavior: "smooth", block: "center" });
-            original.style.transition = "background 0.3s ease";
-            original.style.background = "rgba(93,163,250,0.2)";
-            setTimeout(() => {
-                original.style.background = "";
-            }, 1600);
+        if (msg.from === App.instance.nickname) {
+            div.classList.add("self");
         } else {
-            console.warn("⚠️ Original message not found:", msg.replyTo);
+            div.classList.add("other");
         }
-    }, 100); 
-};
+
+        const textWrapper = document.createElement("div");
+        textWrapper.className = "msg-text";
 
 
-    textWrapper.appendChild(quote);
-}
+        const prefix = isPrivate ? "[PM] " : "";
+        const target = to ? ` → ${to}` : "";
+
+        const time = new Date(msg.ts).toLocaleTimeString([], { 
+            hour: "2-digit", 
+            minute: "2-digit",
+            hour12: true 
+        });
 
 
-    const textSpan = document.createElement("span");
-    textSpan.innerHTML = `${prefix}<strong>${msg.from}${target}</strong> ${msg.text}`;
+        if (msg.replyToText) {
+            const quote = document.createElement("div");
+            quote.className = "reply-quote";
+            quote.textContent = `↩︎ ${msg.replyToFrom}: ${msg.replyToText.slice(0, 40)}${msg.replyToText.length > 40 ? "..." : ""}`;
+            quote.style.fontSize = "0.8rem";
+            quote.style.opacity = "0.65";
+            quote.style.marginBottom = "4px";
+            quote.style.padding = "3px 6px";
+            quote.style.borderLeft = "3px solid #5da3fa";
+            quote.style.borderRadius = "4px";
+            quote.style.background = "rgba(255,255,255,0.05)";
+            quote.style.cursor = "pointer";
+            quote.title = "Click to scroll to original message";
 
 
-    // Delte emojin. Only for my own's text
-    let delBtn = null;
-    if (msg.from === App.instance.nickname) {
-        delBtn = document.createElement("button");
-        delBtn.textContent = "🗑️";
-        delBtn.style.marginLeft = "6px";
-        delBtn.style.background = "transparent";
-        delBtn.style.border = "none";
-        delBtn.style.cursor = "pointer";
-        delBtn.onclick = () => {
-            console.log("[CLIENT] delete click, emit chat:delete", msg.id);
-            App.instance.client.socket.emit("chat:delete", { msgId: msg.id });
-        };
-        textWrapper.appendChild(delBtn);
-    }
-
-    // reply button for everyone
-        const replyBtn = document.createElement("button");
-        replyBtn.textContent = "↩️";
-        replyBtn.style.marginLeft = "4px";
-        replyBtn.style.background = "transparent";
-        replyBtn.style.border = "none";
-        replyBtn.style.cursor = "pointer";
-        replyBtn.onclick = () => {
-            App.instance.replyTarget = {
-                id: msg.id,
-                text: msg.text,
-                from: msg.from
+            quote.onclick = () => {
+            setTimeout(() => {
+                    const original = document.querySelector(`[data-id="${msg.replyTo}"]`);
+                    if (original) {
+                        original.scrollIntoView({ behavior: "smooth", block: "center" });
+                        original.style.transition = "background 0.3s ease";
+                        original.style.background = "rgba(93,163,250,0.2)";
+                        setTimeout(() => {
+                            original.style.background = "";
+                        }, 1600);
+                    } else {
+                        console.warn("⚠️ Original message not found:", msg.replyTo);
+                    }
+                }, 100); 
             };
-            App.instance.showReplyPreview(msg); 
-        };
-        textWrapper.appendChild(replyBtn);
-
-   
-    textWrapper.prepend(textSpan);
 
 
-    const timeSpan = document.createElement("span");
-    timeSpan.className = "msg-time";
-    timeSpan.textContent = time;
+            textWrapper.appendChild(quote);
+        }
 
-  
-    div.appendChild(textWrapper);
-    div.appendChild(timeSpan);
 
-    this.$messages.appendChild(div);
-    this.$messages.scrollTop = this.$messages.scrollHeight;
-}
+        const textSpan = document.createElement("span");
+        textSpan.innerHTML = `${prefix}<strong>${msg.from}${target}</strong> ${msg.text}`;
+
+
+        // Delte emojin. Only for my own's text
+        let delBtn = null;
+        if (msg.from === App.instance.nickname) {
+            delBtn = document.createElement("button");
+            delBtn.textContent = "🗑️";
+            delBtn.style.marginLeft = "6px";
+            delBtn.style.background = "transparent";
+            delBtn.style.border = "none";
+            delBtn.style.cursor = "pointer";
+            delBtn.onclick = () => {
+                console.log("[CLIENT] delete click, emit chat:delete", msg.id);
+                App.instance.client.socket.emit("chat:delete", { msgId: msg.id });
+            };
+            textWrapper.appendChild(delBtn);
+        }
+
+        // reply button for everyone
+            const replyBtn = document.createElement("button");
+            replyBtn.textContent = "↩️";
+            replyBtn.style.marginLeft = "4px";
+            replyBtn.style.background = "transparent";
+            replyBtn.style.border = "none";
+            replyBtn.style.cursor = "pointer";
+            replyBtn.onclick = () => {
+                App.instance.replyTarget = {
+                    id: msg.id,
+                    text: msg.text,
+                    from: msg.from
+                };
+                App.instance.showReplyPreview(msg); 
+            };
+            textWrapper.appendChild(replyBtn);
+
+    
+        textWrapper.prepend(textSpan);
+
+
+        const timeSpan = document.createElement("span");
+        timeSpan.className = "msg-time";
+        timeSpan.textContent = time;
+
+    
+        div.appendChild(textWrapper);
+        div.appendChild(timeSpan);
+
+        this.$messages.appendChild(div);
+        this.$messages.scrollTop = this.$messages.scrollHeight;
+    }
 
 
 
    
 
     clearMessages() {
-        this.$messages.innerHTML = "";
+            this.$messages.innerHTML = "";
     }
 }
 
@@ -197,6 +211,7 @@ class SocketClient {
         this.socket = io();
         this.ui = ui;
         this.currentRoom = null;
+        this.pendingRoom = null; 
         this.isOwner = false;
         this.registerHandlers();
     }
@@ -204,65 +219,72 @@ class SocketClient {
   
     registerHandlers() {
    
-    const sound = new Audio("https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg");
-    //// Sound effect used for incoming messages
-    // Source: Google Actions Sound Library (Free-to-use sound effects)
-    // URL: https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg
-
-  
-    this.socket.on("lobby:rooms", rooms =>
-        this.ui.showRooms(rooms, (name, priv) => {
-            if (priv) {
-                const pass = prompt("Password?");
-                this.joinRoom(name, pass || "");
-            } else {
-                this.joinRoom(name, "");
-            }
-        })
-    );
+        const sound = new Audio("https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg");
+        //// Sound effect used for incoming messages
+        // Source: Google Actions Sound Library (Free-to-use sound effects)
+        // URL: https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg
 
     
+        this.socket.on("lobby:rooms", rooms =>{
+            const effectiveRoom = this.pendingRoom || this.currentRoom || "lobby";
+            this.ui.showRooms(rooms, (name, priv) => {
+                
+                if (this.currentRoom === name || this.pendingRoom === name) return;
 
-    this.socket.on("room:users", list =>
-        this.ui.showUsers(
-            list,
-            this.isOwner,
-            u => this.kickUser(u),
-            u => this.banUser(u)
-        )
-     );
-
-    this.socket.on("chat:deleted", ({ msgId }) => {
-    console.log("[CLIENT] chat:deleted received:", msgId);
-    const msgEl = document.querySelector(`[data-id="${msgId}"]`);
-    if (msgEl) {
-        const textSpan = msgEl.querySelector(".msg-text");
-        if (textSpan) {
-            textSpan.textContent = "message deleted";
+                if (priv) {
+                    const pass = prompt("Password?");
+                    this.joinRoom(name, pass || "");
+                } else {
+                    this.joinRoom(name, "");
+                }
+            }
+            )
         }
-        msgEl.style.opacity = "0.6";
-    } else {
-        console.warn("[CLIENT] message element not found for id:", msgId);
-    }
-});
+          
+        );
 
-   
-    this.socket.on("chat:public", msg => {
-        this.ui.addMessage(msg);
-   
-        if (msg.from !== App.instance.nickname) {
-            sound.play().catch(() => {});
-        }
-    });
+        
 
-    this.socket.on("chat:private", msg => {
-        this.ui.addMessage(msg, true, msg.to);
+        this.socket.on("room:users", list =>
+            this.ui.showUsers(
+                list,
+                this.isOwner,
+                u => this.kickUser(u),
+                u => this.banUser(u)
+            )
+        );
 
-        if (msg.from !== App.instance.nickname) {
-            sound.play().catch(() => {});
-            this.socket.emit("chat:read", { msgId: msg.id });
-        }
-    });
+        this.socket.on("chat:deleted", ({ msgId }) => {
+            console.log("[CLIENT] chat:deleted received:", msgId);
+            const msgEl = document.querySelector(`[data-id="${msgId}"]`);
+            if (msgEl) {
+                    const textSpan = msgEl.querySelector(".msg-text");
+                    if (textSpan) {
+                        textSpan.textContent = "message deleted";
+                    }
+                    msgEl.style.opacity = "0.6";
+                } else {
+                    console.warn("[CLIENT] message element not found for id:", msgId);
+                }
+        });
+
+    
+        this.socket.on("chat:public", msg => {
+            this.ui.addMessage(msg);
+    
+            if (msg.from !== App.instance.nickname) {
+                sound.play().catch(() => {});
+            }
+        });
+
+        this.socket.on("chat:private", msg => {
+            this.ui.addMessage(msg, true, msg.to);
+
+            if (msg.from !== App.instance.nickname) {
+                sound.play().catch(() => {});
+                this.socket.emit("chat:read", { msgId: msg.id });
+            }
+        });
 
 
          
@@ -319,6 +341,10 @@ class SocketClient {
             // store nickname locally
             localStorage.setItem("nickname", nickname);
             this.ui.showApp();
+
+            this.currentRoom = "lobby";
+            document.body.classList.add("lobby-mode");
+            this.ui.$roomTitle.textContent = "Lobby";
         });
     }
 
@@ -333,20 +359,26 @@ class SocketClient {
 
 
     joinRoom(name, password) {
-        this.socket.emit("room:join", { name, password }, res => {
-            if (!res.ok)
-            {
-                return alert(res.error);
-            } 
+        this.pendingRoom = name;
 
-            // successfully joined
+        this.socket.emit("room:join", { name, password }, res => {
+            if (!res?.ok) {
+                this.pendingRoom = null;         
+                return alert(res?.error || "Join failed");
+            }
+
+            // commit the room and owner state
             this.currentRoom = name;
-            this.isOwner = App.instance.nickname === res.owner;
+            this.pendingRoom = null;        
+            this.isOwner = (App.instance.nickname === res.owner);
             this.ui.$roomTitle.textContent = name;
 
-            // enable leave button except in lobby
+            document.body.classList.remove("lobby-mode"); 
             document.getElementById("leaveBtn").disabled = false;
-            this.ui.clearMessages(); 
+            this.ui.clearMessages();
+
+            //fetch a fresh user list *after* isOwner is se so Kick/Ban render now
+            this.socket.emit("room:getUsers", { room: name });
         });
     }
 
@@ -357,6 +389,7 @@ class SocketClient {
         this.ui.$roomTitle.textContent = "Lobby";
 
         // disable leave in lobby since you can't leave lobby
+        document.body.classList.add("lobby-mode");
         document.getElementById("leaveBtn").disabled = true; 
         this.ui.clearMessages();
     }
@@ -473,7 +506,7 @@ class App {
             if (text) this.client.sendMessage(text);
             input.value = "";
         };
-     // Creartive protion : recognize typing from someone
+        // Creartive protion : recognize typing from someone
         const msgInput = document.getElementById("msgInput");
         let typingTimeout;
 
