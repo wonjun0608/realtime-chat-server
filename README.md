@@ -1,34 +1,60 @@
 
-Partner:
-EunHo Lee, Github id: AdvancedUno
+## Credits
+This project was developed collaboratively with **EunHo Lee**
+(GitHub: [AdvancedUno]
 
 Link : http://ec2-18-222-197-42.us-east-2.compute.amazonaws.com:3456/
 
-<br><br>
-Creative Portion:
+## Overview
+This project is a real-time, multi-room chat application built with Node.js and
+Socket.IO. Users can join a lobby, create or join chat rooms, and communicate
+instantly through a single-page interface. All messages and events are delivered
+in real time without page refreshes, providing a smooth and responsive chatting
+experience similar to modern messaging platforms.
 
-1. Reply to a Specific Message
+## Key Features
+- Real-time messaging using WebSockets (Socket.IO)
+- Lobby system with dynamic room creation and joining
+- Live user list updates per room
+- Single-page chat interface with instant updates
 
-You can reply to any specific message either your own or someone else's.
-Next to each message, there is a curved reply arrow (↩️). When you click it, the message you are replying to will appear faintly above your typing box, and your reply will be sent to the chat. 
-Also, if you click on that faint quoted text in your reply, the chat will smoothly scroll up and highlight the original message. So you can easily see which message you were replying to.
+## Extended Features
 
-2. Typing Indicator
+### Reply to a Specific Message
+Users can reply to any specific message, including their own or someone else’s.
+Each message includes a reply icon (↩️). When replying, the original message is
+shown faintly above the input box to provide context. Clicking this quoted text
+smoothly scrolls the chat to the original message and highlights it, making
+conversation threads easy to follow.
 
-When someone starts typing, the app detects the input using an event listener and sends a "typing" signal to the server through Socket.IO.
-The server then broadcasts this signal to everyone in the same room. So, in the chatting room, a small message such as “[Nickname] is typing...” appears above the writing message box, letting others know that the person is typing. The indicator stays visible for about 2.2 seconds, automatically disappears when the user stops typing,
-and reappears again if they start typing once more.
+### Typing Indicator
+When a user starts typing, the client detects the input and sends a “typing”
+event to the server via Socket.IO. The server then broadcasts this event to other
+users in the same room. A message such as “[Nickname] is typing…” appears above
+the input box and automatically disappears after about 2.2 seconds of inactivity,
+reappearing if the user resumes typing.
 
-3. Sound Notification
-   
-When another user in the same room sends a new message, you will hear a short sound effect downloaded from the Google Actions Sound Library.
-But, if you haven’t joined that room before, you won’t hear any sound — this keeps notifications limited to the rooms you are currently active in.
+### Sound Notification
+When a new message is sent by another user in the same room, a short notification
+sound is played using audio from the Google Actions Sound Library. To avoid
+unnecessary distractions, sounds are only played for rooms the user has already
+joined.
 
-4. Message Deletion
+### Message Deletion
+Users can delete only their own messages. When a message is deleted, it is removed
+for all users in the room and replaced with a subtle “message deleted” indicator,
+clearly showing that a message existed without revealing its content.
 
-Users can delete only their own messages(not others meesage). When a message is deleted, it disappears for everyone in the same room
-and is replaced by the text “message deleted” in a lighter color.
+## Technical Highlights
+- Event-driven architecture using Socket.IO for real-time communication
+- Server-managed room and user state to ensure consistency across clients
+- Fine-grained event handling for typing indicators, replies, and deletions
+- Client-side UI updates synchronized with server broadcasts
+- Clear separation between server logic and client-side interaction handling
 
-         
+## Tech Stack
+- Node.js
+- Socket.IO
+- JavaScript (Client & Server)
+- HTML / CSS
 
-#
