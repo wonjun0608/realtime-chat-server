@@ -1,7 +1,7 @@
 
 ## Credits
 This project was developed collaboratively with **EunHo Lee**
-(GitHub: [AdvancedUno]
+(GitHub: AdvancedUno)
 
 Link : http://ec2-18-222-197-42.us-east-2.compute.amazonaws.com:3456/
 
